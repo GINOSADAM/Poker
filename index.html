@@ -17,7 +17,6 @@ body{
   padding:20px;
   font-size:28px;
   color:#00ff99;
-  text-shadow:0 0 10px #00ff99;
 }
 
 .container{
@@ -62,31 +61,45 @@ th{
   background:#0f2f22;
   color:#00ff99;
 }
+
+.hidden{
+  display:none;
+}
 </style>
 </head>
 
 <body>
 
-<div class="header">🃏 CASINO POKER LIVE</div>
+<div class="header">🃏 CASINO LIVE POKER</div>
 
 <div class="container">
 
+<!-- LOGIN -->
+<div class="card" id="loginBox">
+  <h3>🎲 Login Tavolo</h3>
+  <input id="playerName" placeholder="Inserisci nome">
+  <button class="green" onclick="login()">ENTRA</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+
 <div class="card">
+<h3 id="welcome"></h3>
 
-<h3>🎲 Inserimento Mano</h3>
+<div id="adminPanel"></div>
 
-<input id="nome" placeholder="Nome">
 <input id="buyin" type="number" placeholder="Buy-in">
 <input id="cashout" type="number" placeholder="Cashout">
 
-<button class="green" onclick="add()">INVIA</button>
+<button class="green" onclick="add()">INVIA MANO</button>
 
 </div>
 
 <div class="card">
-
 <h3>🏆 CLASSIFICA LIVE</h3>
 <div id="board">Caricamento...</div>
+</div>
 
 </div>
 
@@ -98,42 +111,76 @@ th{
 
 <script>
 
-// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
-  databaseURL: "https://poker-507aa-default-rtdb.europe-west1.firebasedatabase.app/
-:"
+  databaseURL: "https://console.firebase.google.com/u/0/project/poker-507aa/database/poker-507aa-default-rtdb/data/~2F"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let data = {};
+let locked = false;
+let player = null;
 
-/* ➕ INSERISCI MANO */
+/* LOGIN */
+function login(){
+
+  const name = document.getElementById("playerName").value.trim();
+  if(!name) return;
+
+  player = name;
+  localStorage.setItem("player", name);
+
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+
+  document.getElementById("welcome").innerText =
+    "👤 Giocatore: " + name;
+
+  if(name === "Jonny"){
+    document.getElementById("adminPanel").innerHTML =
+      `<button class="red" onclick="toggleLock()">BLOCCA / SBLOCCA INSERIMENTI</button>`;
+  }
+
+  listen();
+}
+
+/* LOCK ADMIN */
+function toggleLock(){
+  locked = !locked;
+}
+
+/* ADD MANO */
 function add(){
 
-  const nome = document.getElementById("nome").value;
+  if(locked){
+    alert("INSERIMENTI BLOCCATI");
+    return;
+  }
+
   const buyin = Number(document.getElementById("buyin").value);
   const cashout = Number(document.getElementById("cashout").value);
 
   db.ref("poker").push({
-    nome,
+    nome: player,
     buyin,
     cashout
+  });
+}
+
+/* LISTEN FIREBASE */
+function listen(){
+
+  db.ref("poker").on("value", snapshot => {
+
+    data = snapshot.val() || {};
+    render();
+
   });
 
 }
 
-/* 📡 LIVE SYNC */
-db.ref("poker").on("value", snapshot => {
-
-  data = snapshot.val() || {};
-
-  render();
-
-});
-
-/* 🏆 CLASSIFICA */
+/* CLASSIFICA */
 function render(){
 
   const players = {};
@@ -153,17 +200,10 @@ function render(){
     .map(n=>{
 
       const p = players[n];
-
       const profit = p.cashout - p.buyin;
-
       const roi = p.buyin ? (profit/p.buyin)*100 : 0;
 
-      return {
-        nome:n,
-        profit,
-        roi,
-        partite:p.partite
-      };
+      return {nome:n,profit,roi,partite:p.partite};
     })
     .sort((a,b)=>b.roi-a.roi);
 
@@ -174,7 +214,6 @@ function render(){
       <th>PLAYER</th>
       <th>ROI</th>
       <th>PROFIT</th>
-      <th>PARTITE</th>
     </tr>
   `;
 
@@ -185,7 +224,6 @@ function render(){
         <td>${p.nome}</td>
         <td>${p.roi.toFixed(2)}%</td>
         <td>${p.profit.toFixed(2)}€</td>
-        <td>${p.partite}</td>
       </tr>
     `;
   });
@@ -193,6 +231,14 @@ function render(){
   html += "</table>";
 
   document.getElementById("board").innerHTML = html;
+}
+
+/* AUTO LOGIN */
+window.onload = function(){
+  const saved = localStorage.getItem("player");
+  if(saved){
+    document.getElementById("playerName").value = saved;
+  }
 }
 
 </script>
