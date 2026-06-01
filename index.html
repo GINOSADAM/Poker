@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Casino Live Pro</title>
+<title>Casino Poker Live</title>
 
 <style>
 body{
@@ -15,9 +15,9 @@ body{
 .header{
   text-align:center;
   padding:20px;
+  font-size:26px;
   background:#0f2f22;
   color:#00ff99;
-  font-size:26px;
 }
 
 .container{
@@ -37,9 +37,13 @@ input,button{
   width:100%;
   padding:10px;
   margin-top:5px;
+  border:none;
+  border-radius:5px;
 }
 
-button{cursor:pointer;}
+button{
+  cursor:pointer;
+}
 
 .green{background:#00ff99;}
 .red{background:#ff3b3b;color:white;}
@@ -62,49 +66,55 @@ th{
 }
 
 .hidden{display:none;}
+
 </style>
 </head>
 
 <body>
 
-<div class="header">🃏 CASINO LIVE TABLE</div>
+<div class="header">🃏 CASINO LIVE POKER</div>
 
 <div class="container">
 
+<!-- LOGIN -->
 <div class="card" id="loginBox">
-  <h3>🎲 Entra al Tavolo</h3>
+  <h3>🎲 Login</h3>
   <input id="name" placeholder="Nome giocatore">
   <button class="green" onclick="login()">ENTRA</button>
 </div>
 
+<!-- APP -->
 <div id="app" class="hidden">
 
 <div class="card">
 <h3 id="welcome"></h3>
 
-<div id="admin"></div>
+<div id="adminPanel"></div>
 
 <input id="buyin" type="number" placeholder="Buy-in">
 <input id="cashout" type="number" placeholder="Cashout">
 
 <button class="green" onclick="addHand()">INVIA MANO</button>
-
 </div>
 
 <div class="card">
 <h3>🏆 CLASSIFICA LIVE</h3>
-<div id="board"></div>
+<div id="board">Caricamento...</div>
 </div>
 
 </div>
 
 </div>
 
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
 
+/* =========================
+   🔥 FIREBASE CONFIG
+========================= */
 const firebaseConfig = {
   databaseURL: "https://poker-507aa-default-rtdb.europe-west1.firebasedatabase.app/"
 };
@@ -112,89 +122,110 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+/* =========================
+   GLOBAL VARIABLES
+========================= */
 let player = null;
 let locked = false;
 let data = {};
 
-/* LOGIN */
+/* =========================
+   LOGIN
+========================= */
 function login(){
 
-  player = document.getElementById("name").value.trim();
-  if(!player) return;
+  const name = document.getElementById("name").value.trim();
+  if(!name) return;
+
+  player = name;
 
   document.getElementById("loginBox").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
 
-  document.getElementById("welcome").innerText =
-    "👤 " + player;
+  document.getElementById("welcome").innerText = "👤 " + player;
 
   if(player === "Jonny"){
-    document.getElementById("admin").innerHTML =
-      `<button class="red" onclick="toggleLock()">BLOCCA TAVOLO</button>`;
+    document.getElementById("adminPanel").innerHTML =
+      `<button class="red" onclick="toggleLock()">🔒 BLOCCA / SBLOCCA TAVOLO</button>`;
   }
 
   listen();
 }
 
-/* LOCK */
+/* =========================
+   LOCK SYSTEM (ADMIN)
+========================= */
 function toggleLock(){
   locked = !locked;
 }
 
-/* ADD HAND */
+/* =========================
+   ADD HAND
+========================= */
 function addHand(){
 
   if(locked){
-    alert("TAVOLO CHIUSO");
+    alert("TAVOLO BLOCCATO");
     return;
   }
 
   const buyin = Number(document.getElementById("buyin").value);
   const cashout = Number(document.getElementById("cashout").value);
 
-  db.ref("casino").push({
+  db.ref("poker").push({
     player,
     buyin,
     cashout
   });
 }
 
-/* LIVE SYNC */
+/* =========================
+   FIREBASE LISTENER
+========================= */
 function listen(){
 
-  db.ref("casino").on("value", snap => {
+  db.ref("poker").on("value", snapshot => {
 
-    data = snap.val() || {};
+    data = snapshot.val() || {};
     render();
 
   });
 
 }
 
-/* CLASSIFICA */
+/* =========================
+   CLASSIFICA
+========================= */
 function render(){
 
-  const p = {};
+  const players = {};
 
   Object.values(data).forEach(r=>{
 
-    if(!p[r.player]){
-      p[r.player]={buyin:0,cashout:0,partite:0};
+    if(!players[r.player]){
+      players[r.player] = {buyin:0,cashout:0,partite:0};
     }
 
-    p[r.player].buyin += r.buyin;
-    p[r.player].cashout += r.cashout;
-    p[r.player].partite++;
+    players[r.player].buyin += r.buyin;
+    players[r.player].cashout += r.cashout;
+    players[r.player].partite++;
   });
 
-  const rank = Object.keys(p).map(n=>{
+  const ranking = Object.keys(players)
+    .map(name=>{
 
-    const x = p[n];
-    const profit = x.cashout - x.buyin;
-    const roi = x.buyin ? (profit/x.buyin)*100 : 0;
+      const p = players[name];
+      const profit = p.cashout - p.buyin;
+      const roi = p.buyin ? (profit / p.buyin) * 100 : 0;
 
-    return {name:n,profit,roi};
-  }).sort((a,b)=>b.roi-a.roi);
+      return {
+        name,
+        profit,
+        roi,
+        partite:p.partite
+      };
+    })
+    .sort((a,b)=>b.roi-a.roi);
 
   let html = `
   <table>
@@ -203,16 +234,18 @@ function render(){
       <th>PLAYER</th>
       <th>ROI</th>
       <th>PROFIT</th>
+      <th>GAMES</th>
     </tr>
   `;
 
-  rank.forEach((r,i)=>{
+  ranking.forEach((p,i)=>{
     html += `
       <tr>
         <td>${i+1}</td>
-        <td>${r.name}</td>
-        <td>${r.roi.toFixed(2)}%</td>
-        <td>${r.profit.toFixed(2)}€</td>
+        <td>${p.name}</td>
+        <td>${p.roi.toFixed(2)}%</td>
+        <td>${p.profit.toFixed(2)}€</td>
+        <td>${p.partite}</td>
       </tr>
     `;
   });
