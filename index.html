@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Poker Casino Live</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial;
+  background: radial-gradient(circle, #0b3d2e, #061b14);
+  color:white;
+}
+
+.header{
+  text-align:center;
+  padding:20px;
+  font-size:28px;
+  color:#00ff99;
+  text-shadow:0 0 10px #00ff99;
+}
+
+.container{
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+}
+
+.card{
+  background:#123f30;
+  padding:15px;
+  margin-top:15px;
+  border-radius:10px;
+}
+
+input,button{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+}
+
+button{
+  cursor:pointer;
+}
+
+.green{background:#00ff99;}
+.red{background:#ff3b3b;color:white;}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+th,td{
+  border:1px solid #1f5c45;
+  padding:8px;
+  text-align:center;
+}
+
+th{
+  background:#0f2f22;
+  color:#00ff99;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">🃏 POKER CASINO LIVE</div>
+
+<div class="container">
+
+<div class="card">
+
+<h3>🎲 Inserimento Mano</h3>
+
+<input id="nome" placeholder="Nome giocatore">
+<input id="buyin" type="number" placeholder="Buy-in">
+<input id="cashout" type="number" placeholder="Cashout">
+
+<button class="green" onclick="add()">INVIA</button>
+
+</div>
+
+<div class="card">
+
+<h3>🏆 CLASSIFICA ROI</h3>
+<div id="board">Caricamento...</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* 📦 DATI LOCALI (GitHub Pages non ha database) */
+let data = JSON.parse(localStorage.getItem("poker") || "[]");
+
+function save(){
+  localStorage.setItem("poker", JSON.stringify(data));
+}
+
+/* ➕ aggiungi mano */
+function add(){
+
+  const nome = document.getElementById("nome").value.trim();
+  const buyin = Number(document.getElementById("buyin").value);
+  const cashout = Number(document.getElementById("cashout").value);
+
+  if(!nome) return;
+
+  data.push({nome,buyin,cashout});
+  save();
+  render();
+}
+
+/* 🏆 classifica ROI */
+function render(){
+
+  const players = {};
+
+  data.forEach(r=>{
+
+    const key = r.nome.toLowerCase();
+
+    if(!players[key]){
+      players[key]={nome:r.nome,buyin:0,cashout:0,partite:0};
+    }
+
+    players[key].buyin += r.buyin;
+    players[key].cashout += r.cashout;
+    players[key].partite++;
+  });
+
+  const ranking = Object.values(players)
+    .map(p=>{
+
+      const profit = p.cashout - p.buyin;
+
+      const roi = p.buyin ? (profit/p.buyin)*100 : 0;
+
+      return {
+        nome:p.nome,
+        profit,
+        roi,
+        partite:p.partite
+      };
+    })
+    .sort((a,b)=>b.roi-a.roi);
+
+  let html = `
+  <table>
+    <tr>
+      <th>POS</th>
+      <th>PLAYER</th>
+      <th>ROI</th>
+      <th>PROFIT</th>
+      <th>PARTITE</th>
+    </tr>
+  `;
+
+  ranking.forEach((p,i)=>{
+    html += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${p.nome}</td>
+        <td>${p.roi.toFixed(2)}%</td>
+        <td>${p.profit.toFixed(2)}€</td>
+        <td>${p.partite}</td>
+      </tr>
+    `;
+  });
+
+  html += "</table>";
+
+  document.getElementById("board").innerHTML = html;
+}
+
+render();
+
+</script>
+
+</body>
+</html>
