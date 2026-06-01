@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Poker Casino Live</title>
+<title>Casino Poker Live</title>
 
 <style>
 body{
@@ -62,13 +62,12 @@ th{
   background:#0f2f22;
   color:#00ff99;
 }
-
 </style>
 </head>
 
 <body>
 
-<div class="header">🃏 POKER CASINO LIVE</div>
+<div class="header">🃏 CASINO POKER LIVE</div>
 
 <div class="container">
 
@@ -76,7 +75,7 @@ th{
 
 <h3>🎲 Inserimento Mano</h3>
 
-<input id="nome" placeholder="Nome giocatore">
+<input id="nome" placeholder="Nome">
 <input id="buyin" type="number" placeholder="Buy-in">
 <input id="cashout" type="number" placeholder="Cashout">
 
@@ -86,63 +85,81 @@ th{
 
 <div class="card">
 
-<h3>🏆 CLASSIFICA ROI</h3>
+<h3>🏆 CLASSIFICA LIVE</h3>
 <div id="board">Caricamento...</div>
 
 </div>
 
 </div>
 
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
 
-/* 📦 DATI LOCALI (GitHub Pages non ha database) */
-let data = JSON.parse(localStorage.getItem("poker") || "[]");
+// 🔥 CONFIG FIREBASE
+const firebaseConfig = {
+  databaseURL: "https://poker-507aa-default-rtdb.europe-west1.firebasedatabase.app/
+:"
+};
 
-function save(){
-  localStorage.setItem("poker", JSON.stringify(data));
-}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-/* ➕ aggiungi mano */
+let data = {};
+
+/* ➕ INSERISCI MANO */
 function add(){
 
-  const nome = document.getElementById("nome").value.trim();
+  const nome = document.getElementById("nome").value;
   const buyin = Number(document.getElementById("buyin").value);
   const cashout = Number(document.getElementById("cashout").value);
 
-  if(!nome) return;
+  db.ref("poker").push({
+    nome,
+    buyin,
+    cashout
+  });
 
-  data.push({nome,buyin,cashout});
-  save();
-  render();
 }
 
-/* 🏆 classifica ROI */
+/* 📡 LIVE SYNC */
+db.ref("poker").on("value", snapshot => {
+
+  data = snapshot.val() || {};
+
+  render();
+
+});
+
+/* 🏆 CLASSIFICA */
 function render(){
 
   const players = {};
 
-  data.forEach(r=>{
+  Object.values(data).forEach(r=>{
 
-    const key = r.nome.toLowerCase();
-
-    if(!players[key]){
-      players[key]={nome:r.nome,buyin:0,cashout:0,partite:0};
+    if(!players[r.nome]){
+      players[r.nome]={buyin:0,cashout:0,partite:0};
     }
 
-    players[key].buyin += r.buyin;
-    players[key].cashout += r.cashout;
-    players[key].partite++;
+    players[r.nome].buyin += r.buyin;
+    players[r.nome].cashout += r.cashout;
+    players[r.nome].partite++;
   });
 
-  const ranking = Object.values(players)
-    .map(p=>{
+  const ranking = Object.keys(players)
+    .map(n=>{
+
+      const p = players[n];
 
       const profit = p.cashout - p.buyin;
 
       const roi = p.buyin ? (profit/p.buyin)*100 : 0;
 
       return {
-        nome:p.nome,
+        nome:n,
         profit,
         roi,
         partite:p.partite
@@ -177,8 +194,6 @@ function render(){
 
   document.getElementById("board").innerHTML = html;
 }
-
-render();
 
 </script>
 
