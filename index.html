@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html lang="it">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Casino Poker Live</title>
+<title>Casino Live Pro</title>
 
 <style>
 body{
   margin:0;
   font-family:Arial;
-  background: radial-gradient(circle, #0b3d2e, #061b14);
+  background:#061b14;
   color:white;
 }
 
 .header{
   text-align:center;
   padding:20px;
-  font-size:28px;
+  background:#0f2f22;
   color:#00ff99;
+  font-size:26px;
 }
 
 .container{
@@ -38,9 +39,7 @@ input,button{
   margin-top:5px;
 }
 
-button{
-  cursor:pointer;
-}
+button{cursor:pointer;}
 
 .green{background:#00ff99;}
 .red{background:#ff3b3b;color:white;}
@@ -62,50 +61,45 @@ th{
   color:#00ff99;
 }
 
-.hidden{
-  display:none;
-}
+.hidden{display:none;}
 </style>
 </head>
 
 <body>
 
-<div class="header">🃏 CASINO LIVE POKER</div>
+<div class="header">🃏 CASINO LIVE TABLE</div>
 
 <div class="container">
 
-<!-- LOGIN -->
 <div class="card" id="loginBox">
-  <h3>🎲 Login Tavolo</h3>
-  <input id="playerName" placeholder="Inserisci nome">
+  <h3>🎲 Entra al Tavolo</h3>
+  <input id="name" placeholder="Nome giocatore">
   <button class="green" onclick="login()">ENTRA</button>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard" class="hidden">
+<div id="app" class="hidden">
 
 <div class="card">
 <h3 id="welcome"></h3>
 
-<div id="adminPanel"></div>
+<div id="admin"></div>
 
 <input id="buyin" type="number" placeholder="Buy-in">
 <input id="cashout" type="number" placeholder="Cashout">
 
-<button class="green" onclick="add()">INVIA MANO</button>
+<button class="green" onclick="addHand()">INVIA MANO</button>
 
 </div>
 
 <div class="card">
 <h3>🏆 CLASSIFICA LIVE</h3>
-<div id="board">Caricamento...</div>
+<div id="board"></div>
 </div>
 
 </div>
 
 </div>
 
-<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -118,62 +112,59 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let data = {};
-let locked = false;
 let player = null;
+let locked = false;
+let data = {};
 
 /* LOGIN */
 function login(){
 
-  const name = document.getElementById("playerName").value.trim();
-  if(!name) return;
-
-  player = name;
-  localStorage.setItem("player", name);
+  player = document.getElementById("name").value.trim();
+  if(!player) return;
 
   document.getElementById("loginBox").classList.add("hidden");
-  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("app").classList.remove("hidden");
 
   document.getElementById("welcome").innerText =
-    "👤 Giocatore: " + name;
+    "👤 " + player;
 
-  if(name === "Jonny"){
-    document.getElementById("adminPanel").innerHTML =
-      `<button class="red" onclick="toggleLock()">BLOCCA / SBLOCCA INSERIMENTI</button>`;
+  if(player === "Jonny"){
+    document.getElementById("admin").innerHTML =
+      `<button class="red" onclick="toggleLock()">BLOCCA TAVOLO</button>`;
   }
 
   listen();
 }
 
-/* LOCK ADMIN */
+/* LOCK */
 function toggleLock(){
   locked = !locked;
 }
 
-/* ADD MANO */
-function add(){
+/* ADD HAND */
+function addHand(){
 
   if(locked){
-    alert("INSERIMENTI BLOCCATI");
+    alert("TAVOLO CHIUSO");
     return;
   }
 
   const buyin = Number(document.getElementById("buyin").value);
   const cashout = Number(document.getElementById("cashout").value);
 
-  db.ref("poker").push({
-    nome: player,
+  db.ref("casino").push({
+    player,
     buyin,
     cashout
   });
 }
 
-/* LISTEN FIREBASE */
+/* LIVE SYNC */
 function listen(){
 
-  db.ref("poker").on("value", snapshot => {
+  db.ref("casino").on("value", snap => {
 
-    data = snapshot.val() || {};
+    data = snap.val() || {};
     render();
 
   });
@@ -183,29 +174,27 @@ function listen(){
 /* CLASSIFICA */
 function render(){
 
-  const players = {};
+  const p = {};
 
   Object.values(data).forEach(r=>{
 
-    if(!players[r.nome]){
-      players[r.nome]={buyin:0,cashout:0,partite:0};
+    if(!p[r.player]){
+      p[r.player]={buyin:0,cashout:0,partite:0};
     }
 
-    players[r.nome].buyin += r.buyin;
-    players[r.nome].cashout += r.cashout;
-    players[r.nome].partite++;
+    p[r.player].buyin += r.buyin;
+    p[r.player].cashout += r.cashout;
+    p[r.player].partite++;
   });
 
-  const ranking = Object.keys(players)
-    .map(n=>{
+  const rank = Object.keys(p).map(n=>{
 
-      const p = players[n];
-      const profit = p.cashout - p.buyin;
-      const roi = p.buyin ? (profit/p.buyin)*100 : 0;
+    const x = p[n];
+    const profit = x.cashout - x.buyin;
+    const roi = x.buyin ? (profit/x.buyin)*100 : 0;
 
-      return {nome:n,profit,roi,partite:p.partite};
-    })
-    .sort((a,b)=>b.roi-a.roi);
+    return {name:n,profit,roi};
+  }).sort((a,b)=>b.roi-a.roi);
 
   let html = `
   <table>
@@ -217,13 +206,13 @@ function render(){
     </tr>
   `;
 
-  ranking.forEach((p,i)=>{
+  rank.forEach((r,i)=>{
     html += `
       <tr>
         <td>${i+1}</td>
-        <td>${p.nome}</td>
-        <td>${p.roi.toFixed(2)}%</td>
-        <td>${p.profit.toFixed(2)}€</td>
+        <td>${r.name}</td>
+        <td>${r.roi.toFixed(2)}%</td>
+        <td>${r.profit.toFixed(2)}€</td>
       </tr>
     `;
   });
@@ -231,14 +220,6 @@ function render(){
   html += "</table>";
 
   document.getElementById("board").innerHTML = html;
-}
-
-/* AUTO LOGIN */
-window.onload = function(){
-  const saved = localStorage.getItem("player");
-  if(saved){
-    document.getElementById("playerName").value = saved;
-  }
 }
 
 </script>
