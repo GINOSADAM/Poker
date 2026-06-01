@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Casino Poker Live</title>
+
+<style>
+body{
+  font-family:Arial;
+  background:#061b14;
+  color:white;
+  margin:0;
+}
+
+.header{
+  background:#0f2f22;
+  padding:20px;
+  text-align:center;
+  color:#00ff99;
+}
+
+.container{
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+}
+
+.card{
+  background:#123f30;
+  padding:15px;
+  margin-top:15px;
+  border-radius:10px;
+}
+
+input,button{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+}
+
+button{
+  cursor:pointer;
+}
+
+.green{background:#00ff99;}
+.red{background:#ff3b3b;color:white;}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+th,td{
+  border:1px solid #1f5c45;
+  padding:8px;
+  text-align:center;
+}
+
+th{
+  background:#0f2f22;
+  color:#00ff99;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">🃏 CASINO LIVE POKER</div>
+
+<div class="container">
+
+<div class="card">
+
+<h3>🎲 Inserisci mano</h3>
+
+<input id="nome" placeholder="Nome">
+<input id="buyin" type="number" placeholder="Buy-in">
+<input id="cashout" type="number" placeholder="Cashout">
+
+<button class="green" onclick="add()">INVIA</button>
+
+</div>
+
+<div class="card">
+
+<h3>🏆 CLASSIFICA LIVE</h3>
+<div id="board">Caricamento...</div>
+
+</div>
+
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+
+// 🔥 CONFIG FIREBASE (SOSTITUISCI QUI)
+const firebaseConfig = {
+  databaseURL: "https://console.firebase.google.com/u/0/project/poker-507aa/database/poker-507aa-default-rtdb/data/~2F"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let data = {};
+
+/* ➕ AGGIUNGI MANO */
+function add(){
+
+  const nome = document.getElementById("nome").value;
+  const buyin = Number(document.getElementById("buyin").value);
+  const cashout = Number(document.getElementById("cashout").value);
+
+  db.ref("poker").push({
+    nome,
+    buyin,
+    cashout
+  });
+
+}
+
+/* 📡 LIVE UPDATE */
+db.ref("poker").on("value", snapshot => {
+
+  data = snapshot.val() || {};
+
+  render();
+
+});
+
+/* 🏆 CLASSIFICA */
+function render(){
+
+  const players = {};
+
+  Object.values(data).forEach(r=>{
+
+    if(!players[r.nome]){
+      players[r.nome]={buyin:0,cashout:0,partite:0};
+    }
+
+    players[r.nome].buyin += r.buyin;
+    players[r.nome].cashout += r.cashout;
+    players[r.nome].partite++;
+  });
+
+  const rank = Object.keys(players).map(n=>{
+
+    const p = players[n];
+
+    const profit = p.cashout - p.buyin;
+
+    const roi = p.buyin ? (profit/p.buyin)*100 : 0;
+
+    return {nome:n,profit,roi};
+  }).sort((a,b)=>b.roi-a.roi);
+
+  let html = `
+  <table>
+    <tr>
+      <th>POS</th>
+      <th>PLAYER</th>
+      <th>ROI</th>
+      <th>PROFIT</th>
+    </tr>
+  `;
+
+  rank.forEach((p,i)=>{
+    html += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${p.nome}</td>
+        <td>${p.roi.toFixed(2)}%</td>
+        <td>${p.profit.toFixed(2)}€</td>
+      </tr>
+    `;
+  });
+
+  html += "</table>";
+
+  document.getElementById("board").innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
